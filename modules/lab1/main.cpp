@@ -1,6 +1,7 @@
 #include <CL/cl.h>
 #include <iostream>
 #include <fstream> 
+#include <random>
 #include <string>
 
 
@@ -10,8 +11,11 @@
 int main() {
 
 
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
   size_t size = 1024;
-  size_t count = 1000;
+  size_t count = 600;
 
 
   cl_int error_code;
@@ -70,7 +74,7 @@ int main() {
   if (error_code != CL_SUCCESS)
     std::cout << error_code;
  
-  std::ifstream source("../src/cl.cl", std::ios_base::in);
+  std::ifstream source("../../../modules/lab1/cl.cl", std::ios_base::in);
 
   std::string line, cont;
   if (source.is_open())
@@ -85,8 +89,8 @@ int main() {
   const size_t length = cont.length();
   const char* csource = cont.c_str();
 
-  //for (int i = 0; i < length; ++i)
-  //  std::cout << csource[i];
+  for (int i = 0; i < length; ++i)
+    std::cout << csource[i];
 
   source.close();
 
@@ -120,7 +124,7 @@ int main() {
   int* data = new int[size];
   int* result = new int[size]; 
   for (int i = 0; i < count; ++i)
-    data = 0;
+    data[i] = gen() % 100;
 
 
   cl_mem input = clCreateBuffer(
@@ -205,7 +209,7 @@ int main() {
 
 
   for (int i = 0; i < count; ++i)
-    std::cout << result[i] << "\n";
+    std::cout <<data[i] << "  " << result[i] << "\n";
 
   delete[] result;
   delete[] data;
