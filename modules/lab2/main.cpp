@@ -95,8 +95,8 @@ cl_int CL_Run(void* data, void* result, int count, int type, int group_size, voi
   const size_t length = cont.length();
   const char* csource = cont.c_str();
 
-  for (int i = 0; i < length; ++i)
-    std::cout << csource[i];
+
+  std::cout << cont;
 
   source.close();
 
@@ -124,7 +124,7 @@ cl_int CL_Run(void* data, void* result, int count, int type, int group_size, voi
 
   cl_kernel kernel = clCreateKernel(
     program,
-    "print",
+    (type ==1 ? "saxpy" : "daxpy"),
     NULL);
 
   cl_mem input = clCreateBuffer(
@@ -178,8 +178,22 @@ cl_int CL_Run(void* data, void* result, int count, int type, int group_size, voi
   clSetKernelArg(
     kernel,
     3,
-    sizeof(float),
+    Type_Size(type),
     fx
+  );
+
+  clSetKernelArg(
+    kernel,
+    4,
+    sizeof(int),
+    &incx
+  );
+
+  clSetKernelArg(
+    kernel,
+    5,
+    sizeof(int),
+    &incy
   );
 
   size_t group = 0;
@@ -214,9 +228,12 @@ cl_int CL_Run(void* data, void* result, int count, int type, int group_size, voi
     NULL,
     NULL);
 
-
-  for (int i = 0; i < count; ++i)
-    std::cout << (reinterpret_cast<float*>(data))[i] << "  " << (reinterpret_cast<float*>(result))[i] << "\n";
+  if(type == 1)
+    for (int i = 0; i < count; ++i)
+      std::cout << (reinterpret_cast<float*>(data))[i] << "  " << (reinterpret_cast<float*>(result))[i] << "\n";
+  else
+    for (int i = 0; i < count; ++i)
+      std::cout << (reinterpret_cast<double*>(data))[i] << "  " << (reinterpret_cast<double*>(result))[i] << "\n";
 
   clReleaseMemObject(input);
   clReleaseMemObject(output);
@@ -228,28 +245,61 @@ cl_int CL_Run(void* data, void* result, int count, int type, int group_size, voi
   return 0;
 }
 
+
+
+
+
+
+
+
+
+
+
 int main() {
-  int size = 1024;
+  //int size = 1024;
   int count = 1024;
   int incx = 1, incy = 1;
 
-  float* X = new float[size];
-  float* Y = new float[size];
+  float* X = new float[count];
+  float* Y = new float[count];
 
-  for (int i = 0; i < count; ++i)
+  double* X_d = new double[count];
+  double* Y_d = new double[count];
+
+  for (int i = 0; i < count; ++i) {
     X[i] = i;
-
+    X_d[i] = i;
+    Y[i] = 2.1;
+    Y_d[i] = 2.1;
+  }
   float fx = 3.1;
+  double fx_d = 3.1;
 
 
-  CL_Run(X, Y, 1024, 1, 256, &fx, 1, 1);
+  CL_Run(X, Y, count, 1, 256, &fx, 1, 1);
   
-  for (int i = 0; i < count; ++i)
-    std::cout <<Y[i] << "\n";
+  CL_Run(X_d, Y_d, count, 2, 256, &fx_d, 1, 1);
+
+
+  for (int i = 0; i < count; ++i) {
+    X[i] = i;
+    X_d[i] = i;
+    Y[i] = 2.1;
+    Y_d[i] = 2.1;
+  }
+
+  /*#pragma omp parallel for num_threads(4)
+  {
+    for(int i = 0; i < count; ++i)
+      
+  }*/
+  //for (int i = 0; i < count; ++i)
+  //  std::cout <<Y[i] << "\n";
 
   delete[] X;
   delete[] Y;
-
+  delete[] X_d;
+  delete[] Y_d;
 
   return 0;
 }
