@@ -5,7 +5,7 @@ __kernel void matrix_mul(__global float * X, __global float *Y, __global float *
 	int ind = i + j * m;
 	float sum = 0;
 	for(int k = 0; k  < m; ++k){
-		sum += X[j * m + k] * Y[j + k * n];
+		sum += X[j * m + k] * Y[i + k * n];
 	}
 	C[ind] = sum;
 }

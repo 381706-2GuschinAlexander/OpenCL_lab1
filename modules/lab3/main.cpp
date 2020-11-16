@@ -259,7 +259,7 @@ int main() {
   float* CL_C = new float[count];
 
   for (int i = 0; i < count; ++i) {
-    X[i] = 1;
+    X[i] = i%10;
     Y[i] = 2;
   }
 
@@ -278,7 +278,7 @@ int main() {
     for (int j = 0; j < m; ++j) {
       float sum = 0;
       for (int k = 0; k < m; ++k)
-        sum += X[j * m + k] * Y[j + k * n];
+        sum += X[j * m + k] * Y[i + k * n];
       MP_C[i + j * m] = sum;
     }
   auto end = omp_get_wtime();
@@ -297,7 +297,7 @@ int main() {
     for (int j = 0; j < m; ++j) {
       float sum = 0;
       for (int k = 0; k < m; ++k)
-        sum += X[j * m + k] * Y[j + k * n];
+        sum += X[j * m + k] * Y[i + k * n];
       C[i + j * m] = sum;
     }
   end = omp_get_wtime();
