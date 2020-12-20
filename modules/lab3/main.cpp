@@ -4,6 +4,7 @@
 #include <fstream> 
 #include <random>
 #include <string>
+#include <ctime>
 
 cl_int CL_Run(void* data_X, void* data_Y, void* result , int count, int n, int m, int type) {
   const size_t size = count;
@@ -205,7 +206,7 @@ cl_int CL_Run(void* data_X, void* data_Y, void* result , int count, int n, int m
   size_t * grid_size = new size_t[2];
   size_t * group = new size_t[2];
   grid_size[0] = n;
-  grid_size[1] = m;
+  grid_size[1] = n;
   group[0] = 16;
   group[1] = 16;
 
@@ -222,14 +223,14 @@ cl_int CL_Run(void* data_X, void* data_Y, void* result , int count, int n, int m
     NULL);
   clFinish(queue);
   auto end = omp_get_wtime();
-  std::cout << (type == 1 ? "float gpu: " : "double gpu: ")<< end - start << std::endl;
+  std::cout << (type == 1 ? "gpu: " : "opt gpu: ")<< end - start << std::endl;
 
   clEnqueueReadBuffer(
     queue,
     output,
     CL_TRUE,
     0,
-    sizeof(float) * size,
+    sizeof(float) * n * n,
     result,
     0,
     NULL,
@@ -251,16 +252,18 @@ cl_int CL_Run(void* data_X, void* data_Y, void* result , int count, int n, int m
 }
 
 int main() {
-  int n = 16 * 128;
+  int n = 13 * 128;
   int m = 16 * 128;
   int count = n * m;
   float* X = new float[count];
   float* Y = new float[count];
-  float* CL_C = new float[count];
+  float* CL_C = new float[n * n];
+
+  std::mt19937 gen(time(0));
 
   for (int i = 0; i < count; ++i) {
-    X[i] = i%10;
-    Y[i] = 2;
+    X[i] = static_cast<double>(gen() % 5) / 5;
+    Y[i] = static_cast<double>(gen() % 5) / 5;
   }
 
   CL_Run(X, Y, CL_C, count, n, m, 1);
@@ -269,50 +272,63 @@ int main() {
   //  std::cout << CL_C[i] << "\n";
   //}
 
-  float* MP_C = new float[count];
+  float* C = new float[n * n];
+
+  CL_Run(X, Y, C, count, n, m, 2);
   
+  for (int i = 0; i < n * n; ++i)
+    if (abs(CL_C[i] - C[i]) > .1)
+      printf("CL and CL2 %d %f %f\n", i, CL_C[i], C[i]);
+  
+  /*for (int i = 0; i < 16; ++i)
+    for (int j = 0; j < 16; ++j)
+    printf(" CL2 %d  %f\n", i * n + j, X[i * n + j]);*/
+
+  delete[] C;
+
+  float* MP_C = new float[n * n];
+
 
   auto start = omp_get_wtime();
-  #pragma omp parallel for num_threads(6)
-  for(int i = 0; i < n; ++i)
-    for (int j = 0; j < m; ++j) {
+  #pragma omp parallel for schedule(dynamic) num_threads(12)
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < n; ++j) {
       float sum = 0;
       for (int k = 0; k < m; ++k)
-        sum += X[j * m + k] * Y[i + k * n];
-      MP_C[i + j * m] = sum;
+        sum += X[i * m + k] * Y[j + k * n];
+      MP_C[i * n + j] = sum;
     }
+
   auto end = omp_get_wtime();
   std::cout << "omp time: " << end - start << std::endl;
 
-  for (int i = 0; i < count; ++i)
-    if (abs(CL_C[i] - MP_C[i]) > .001)
-      printf("%d %f %f\n", i, CL_C[i], MP_C[i]);
+  for (int i = 0; i < n * n; ++i)
+    if (abs(CL_C[i] - MP_C[i]) > .1)
+      printf("CL and OMP %d %f %f\n", i, CL_C[i], MP_C[i]);
 
   delete[] MP_C;
 
-  float* C = new float[count];
+  C = new float[n * n];
 
   start = omp_get_wtime();
   for (int i = 0; i < n; ++i)
-    for (int j = 0; j < m; ++j) {
+    for (int j = 0; j < n; ++j) {
       float sum = 0;
       for (int k = 0; k < m; ++k)
-        sum += X[j * m + k] * Y[i + k * n];
-      C[i + j * m] = sum;
+        sum += X[i * m + k] * Y[j + k * n];
+      C[i * n + j] = sum;
     }
   end = omp_get_wtime();
-  std::cout << "omp time: " << end - start << std::endl;
+  std::cout << "sequential: " << end - start << std::endl;
 
-  for (int i = 0; i < count; ++i)
-    if (abs(CL_C[i] - C[i]) > .001)
-      printf("%d %f %f\n", i, CL_C[i], C[i]);
+
   
 
-  //CL_Run(CL_X_d, CL_Y_d, count, 2, GROUP_SIZE, &fx_d, 1, 1);
-  
+  delete[] C;
   delete[] X;
   delete[] Y;
   delete[] CL_C;
+
 
   return 0;
 }
